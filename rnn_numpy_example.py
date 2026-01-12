@@ -159,7 +159,7 @@ def train_rnn_example():
             sample_ix = rnn.sample(h_prev, char_to_ix[data[p]], 50)
             txt = ''.join(ix_to_char[ix] for ix in sample_ix)
             print(f"Sample: {txt}")
-        
+        1
         p += seq_length
         n += 1
     
