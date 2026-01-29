@@ -193,8 +193,8 @@ def main():
     
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate,
-                         momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate,
+                          weight_decay=5e-4)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
     
     # Training loop
