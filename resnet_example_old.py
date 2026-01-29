@@ -224,5 +224,107 @@ def main():
     print(f'\nTraining completed! Best accuracy: {best_acc:.2f}%')
 
 
+def load_model(model_path='saved_models/resnet18_best.pth', num_classes=10, device=None):
+    """加载已保存的模型"""
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    model = ResNet18(num_classes=num_classes).to(device)
+    checkpoint = torch.load(model_path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    
+    print(f"模型加载成功: {model_path}")
+    print(f"训练时最佳准确率: {checkpoint.get('accuracy', 'N/A'):.2f}%")
+    
+    return model
+
+
+def predict(model, images, device=None):
+    """
+    对图像进行预测
+    
+    Args:
+        model: 加载的模型
+        images: 图像张量 (B, C, H, W) 或 (C, H, W)
+        device: 设备
+    
+    Returns:
+        predictions: 预测类别
+        probabilities: 预测概率
+    """
+    if device is None:
+        device = next(model.parameters()).device
+    
+    model.eval()
+    
+    # 确保是 batch 格式
+    if images.dim() == 3:
+        images = images.unsqueeze(0)
+    
+    images = images.to(device)
+    
+    with torch.no_grad():
+        outputs = model(images)
+        probabilities = torch.softmax(outputs, dim=1)
+        predictions = torch.argmax(probabilities, dim=1)
+    
+    return predictions, probabilities
+
+
+def predict_and_show(model_path='saved_models/resnet18_best.pth', num_samples=10):
+    """加载模型并在测试集上预测，打印结果"""
+    
+    # CIFAR-10 类别名称
+    classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 
+               'dog', 'frog', 'horse', 'ship', 'truck']
+    
+    # 设备
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device: {device}')
+    
+    # 加载模型
+    model = load_model(model_path, num_classes=10, device=device)
+    
+    # 加载测试数据
+    transform_test = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+    ])
+    test_dataset = datasets.CIFAR10(root='./data', train=False,
+                                    download=True, transform=transform_test)
+    
+    # 预测前 num_samples 个样本
+    print(f"\n{'='*60}")
+    print(f"预测结果 (前 {num_samples} 个样本)")
+    print(f"{'='*60}")
+    print(f"{'序号':<6}{'真实标签':<15}{'预测标签':<15}{'置信度':<10}{'结果'}")
+    print('-' * 60)
+    
+    correct = 0
+    for i in range(num_samples):
+        image, label = test_dataset[i]
+        pred, prob = predict(model, image, device)
+        
+        pred_label = pred.item()
+        confidence = prob[0, pred_label].item() * 100
+        is_correct = pred_label == label
+        correct += is_correct
+        
+        status = "✓" if is_correct else "✗"
+        print(f"{i:<6}{classes[label]:<15}{classes[pred_label]:<15}{confidence:>6.2f}%   {status}")
+    
+    print('-' * 60)
+    print(f"准确率: {correct}/{num_samples} ({100*correct/num_samples:.1f}%)")
+
+
 if __name__ == '__main__':
-    main()
+    import sys
+    
+    if len(sys.argv) > 1 and sys.argv[1] == 'predict':
+        # 预测模式: python resnet_example_old.py predict
+        num_samples = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+        predict_and_show(num_samples=num_samples)
+    else:
+        # 训练模式: python resnet_example_old.py
+        main()
